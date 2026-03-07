@@ -7,9 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight, FileText, Briefcase } from "lucide-react";
+import { ArrowRight, FileText, Briefcase, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+// Simple text extraction from file (reads as text for demo; real parsing needs backend)
+async function extractText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
 
 export default function UploadResume() {
   const [file, setFile] = useState<File | null>(null);
@@ -17,18 +28,51 @@ export default function UploadResume() {
   const [analyzing, setAnalyzing] = useState(false);
   const navigate = useNavigate();
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (withJobMatch = false) => {
     if (!file) {
       toast.error("Please upload a resume first.");
       return;
     }
     setAnalyzing(true);
-    // Simulate analysis - will be replaced with actual AI call
-    setTimeout(() => {
-      setAnalyzing(false);
+    try {
+      const resumeText = await extractText(file);
+
+      if (resumeText.trim().length < 50) {
+        toast.error("Could not extract enough text from the file. Please try a different file.");
+        setAnalyzing(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("analyze-resume", {
+        body: {
+          resumeText,
+          jobDescription: withJobMatch ? jobDescription : undefined,
+          analysisType: withJobMatch ? "job-match" : "general",
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Analysis failed");
+      }
+
+      // Store analysis in sessionStorage for the report page
+      sessionStorage.setItem("resumeAnalysis", JSON.stringify(data));
+      sessionStorage.setItem("resumeFileName", file.name);
+
       toast.success("Resume analyzed successfully!");
       navigate("/analysis");
-    }, 2000);
+    } catch (err: any) {
+      console.error("Analysis error:", err);
+      if (err.message?.includes("Rate limit")) {
+        toast.error("Rate limit exceeded. Please wait a moment and try again.");
+      } else if (err.message?.includes("credits")) {
+        toast.error("AI credits exhausted. Please add credits to continue.");
+      } else {
+        toast.error(err.message || "Analysis failed. Please try again.");
+      }
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   return (
@@ -63,13 +107,16 @@ export default function UploadResume() {
                 <CardContent className="space-y-6">
                   <FileUpload onFileSelect={setFile} />
                   <Button
-                    onClick={handleAnalyze}
+                    onClick={() => handleAnalyze(false)}
                     disabled={!file || analyzing}
                     className="w-full gap-2"
                     size="lg"
                   >
-                    {analyzing ? "Analyzing..." : "Analyze Resume"}
-                    {!analyzing && <ArrowRight className="h-4 w-4" />}
+                    {analyzing ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</>
+                    ) : (
+                      <>Analyze Resume <ArrowRight className="h-4 w-4" /></>
+                    )}
                   </Button>
                 </CardContent>
               </Card>
@@ -94,13 +141,16 @@ export default function UploadResume() {
                     />
                   </div>
                   <Button
-                    onClick={handleAnalyze}
+                    onClick={() => handleAnalyze(true)}
                     disabled={!file || analyzing}
                     className="w-full gap-2"
                     size="lg"
                   >
-                    {analyzing ? "Analyzing..." : "Analyze & Match"}
-                    {!analyzing && <ArrowRight className="h-4 w-4" />}
+                    {analyzing ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</>
+                    ) : (
+                      <>Analyze & Match <ArrowRight className="h-4 w-4" /></>
+                    )}
                   </Button>
                 </CardContent>
               </Card>

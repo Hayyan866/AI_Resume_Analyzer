@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,22 +7,43 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Mail, Lock, User } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Login() {
+  const { signIn, signUp } = useAuth();
+  const navigate = useNavigate();
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.info("Authentication will be connected with Lovable Cloud.");
+    setLoading(true);
+    try {
+      await signIn(loginEmail, loginPassword);
+      toast.success("Signed in successfully!");
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast.error(err.message || "Sign in failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.info("Authentication will be connected with Lovable Cloud.");
+    setLoading(true);
+    try {
+      await signUp(signupEmail, signupPassword, signupName);
+      toast.success("Account created! Check your email to confirm.");
+    } catch (err: any) {
+      toast.error(err.message || "Sign up failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,7 +86,9 @@ export default function Login() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full">Sign In</Button>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Signing in..." : "Sign In"}
+                  </Button>
                 </CardFooter>
               </form>
             </Card>
@@ -102,7 +125,9 @@ export default function Login() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full">Create Account</Button>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Creating account..." : "Create Account"}
+                  </Button>
                 </CardFooter>
               </form>
             </Card>

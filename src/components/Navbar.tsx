@@ -1,8 +1,9 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, LayoutDashboard, Upload, User, Menu, X } from "lucide-react";
+import { FileText, LayoutDashboard, Upload, User, Menu, X, LogOut } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -12,7 +13,14 @@ const navItems = [
 
 export function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-lg">
@@ -24,52 +32,50 @@ export function Navbar() {
           ResumeAI
         </Link>
 
-        {/* Desktop nav */}
         <nav className="hidden items-center gap-1 md:flex">
           {navItems.map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to}>
-              <Button
-                variant={location.pathname === to ? "secondary" : "ghost"}
-                size="sm"
-                className="gap-2"
-              >
-                <Icon className="h-4 w-4" />
-                {label}
+              <Button variant={location.pathname === to ? "secondary" : "ghost"} size="sm" className="gap-2">
+                <Icon className="h-4 w-4" /> {label}
               </Button>
             </Link>
           ))}
           <div className="ml-2 h-6 w-px bg-border" />
-          <Link to="/login">
-            <Button size="sm" className="ml-2">
-              Sign In
+          {user ? (
+            <Button variant="ghost" size="sm" className="ml-2 gap-2" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4" /> Sign Out
             </Button>
-          </Link>
+          ) : (
+            <Link to="/login">
+              <Button size="sm" className="ml-2">Sign In</Button>
+            </Link>
+          )}
         </nav>
 
-        {/* Mobile toggle */}
         <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <nav className="border-t border-border bg-card p-4 md:hidden">
           <div className="flex flex-col gap-2">
             {navItems.map(({ to, label, icon: Icon }) => (
               <Link key={to} to={to} onClick={() => setMobileOpen(false)}>
-                <Button
-                  variant={location.pathname === to ? "secondary" : "ghost"}
-                  className="w-full justify-start gap-2"
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
+                <Button variant={location.pathname === to ? "secondary" : "ghost"} className="w-full justify-start gap-2">
+                  <Icon className="h-4 w-4" /> {label}
                 </Button>
               </Link>
             ))}
-            <Link to="/login" onClick={() => setMobileOpen(false)}>
-              <Button className="w-full">Sign In</Button>
-            </Link>
+            {user ? (
+              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => { handleSignOut(); setMobileOpen(false); }}>
+                <LogOut className="h-4 w-4" /> Sign Out
+              </Button>
+            ) : (
+              <Link to="/login" onClick={() => setMobileOpen(false)}>
+                <Button className="w-full">Sign In</Button>
+              </Link>
+            )}
           </div>
         </nav>
       )}
